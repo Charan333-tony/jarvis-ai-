@@ -48,60 +48,52 @@ chat_page = """
 # ---------------- API CONFIG ----------------
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-API1_KEY = "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"   # limited
-API2_KEY = "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"   # backup
+API1_KEY = "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"   # Replace with your limited API key
+API2_KEY = "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" # Replace with backup/unlimited API key
 
 MODEL = "deepseek/deepseek-chat"
 
 chat_history = []
 
-
 # ---------------- CALL AI FUNCTION ----------------
 def call_ai(api_key, message):
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://jarvis-ai",
+        "X-Title": "Jarvis AI"
     }
 
     data = {
         "model": MODEL,
-        "messages": [
-            {"role": "user", "content": message}
-        ]
+        "messages": [{"role": "user", "content": message}]
     }
 
-    r = requests.post(API_URL, headers=headers, json=data)
+    r = requests.post(API_URL, headers=headers, json=data, timeout=20)
     r.raise_for_status()
-
     return r.json()["choices"][0]["message"]["content"]
-
 
 # ---------------- SMART AI (2 API SYSTEM) ----------------
 def router_respond(message):
     try:
+        # Try API1 first
         return call_ai(API1_KEY, message)
-    except:
+    except Exception as e1:
+        print(f"API1 failed: {e1}, falling back to API2")
         try:
             return call_ai(API2_KEY, message)
-        except:
+        except Exception as e2:
+            print(f"API2 also failed: {e2}")
             return "Both AI servers are down."
-
 
 # ---------------- FLASK CHAT ----------------
 @app.route("/", methods=["GET", "POST"])
 def chat():
     if request.method == "POST":
         msg = request.form["message"]
-
         ai_reply = router_respond(msg)
-
-        chat_history.append({
-            "user": msg,
-            "ai": ai_reply
-        })
-
+        chat_history.append({"user": msg, "ai": ai_reply})
     return render_template_string(chat_page, history=chat_history)
-
 
 # ---------------- RUN APP ----------------
 if __name__ == "__main__":
